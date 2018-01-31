@@ -10881,3 +10881,2556 @@
 }) (angular.module ('UserNotesApp', ['ngRoute']));
 
 
+
+//====================================================================================================================
+// Module:    UserNotesApp
+// Optimized: Yes
+// File:      ../app/app.js
+//====================================================================================================================
+
+(function (module) {
+
+  "use strict";
+
+  let isAuth = (AuthFactory) => new Promise ((resolve, reject) => {
+    if(AuthFactory.isAuthenticated()){
+      // console.log("User is authenticated, resolve route promise");
+      resolve();
+    } else {
+      // console.log("User is not authenticated, reject route promise");
+      reject();
+    }
+  });
+
+  module
+  .constant("FBUrl", "https://testetization.firebaseio.com")
+  .config(($routeProvider)=>{
+    // TODO: add routing
+    $routeProvider
+    .when("/register", {
+      templateUrl:"partials/register.html",
+      controller:"RegisterCtrl"
+    })
+    .when("/login", {
+      templateUrl:"partials/login.html",
+      controller:"LoginCtrl"
+    })
+    .when("/noteList", {
+      templateUrl:"partials/noteList.html",
+      controller:"ItemListCtrl"
+    })
+    .when("/newNote", {
+      templateUrl:"partials/newNote.html",
+      controller:"NewNoteCtrl"
+    })
+    .otherwise("/login")
+    ;
+
+    // when a user is logged in, they will be able to see thet button anchors that 
+    // allow them to add a new note and view their note list
+    // if not logged in, they will not be able to see these buttons
+
+    // When a user logs in, or is automatically logged in, it will take them to their note list
+  })
+  .run(FBCreds =>{
+    let creds = FBCreds;
+    let authConfig = {
+      apiKey: creds.apiKey,
+      authDomain: creds.authDomain
+    };
+      firebase.initializeApp(authConfig);
+  });
+
+
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/ItemListCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("ItemListCtrl", function($scope, noteFactory){
+    $scope.title = "Your notes, my dude.";
+
+
+
+    noteFactory.getNotesFromFB()
+    .then((notes)=>{
+      console.log('dataaaa',notes);
+      if(notes !== null && notes !== undefined){
+        $scope.noteList = Object.keys(notes).map(key => {
+          // notes[key].FBid = key;
+          return notes[key];
+        });
+      }else{
+        $scope.message = "You need some notes, my dude.";
+      }
+      console.log('scopeitems',  $scope.noteList);
+    });
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/LoginCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("LoginCtrl", function($scope, authFactory, $window){
+  $scope.title = "Please Login";
+
+
+
+  $scope.login = ()=>{
+    authFactory.loginUser($scope.account).then(user=>{
+      console.log('logged in user: ',user);
+      $window.location.href = "#!/noteList";
+    });
+  };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NavBarCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NavBarCtrl", function($scope){
+    $scope.thisUserRightHere = firebase.auth().currentUser.uid;
+
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NewNoteCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NewNoteCtrl", function($scope, noteFactory, $location){
+
+    $scope.saveNewNote = () =>{
+      $scope.note.uid = firebase.auth().currentUser.uid;
+      noteFactory.saveNewNoteToFB($scope.note)
+      // .then(data=>{
+
+        // noteFactory.getNotesFromFB()
+        .then(allnotes=>{
+          console.log('allnotes',allnotes);
+          $location.url("/noteList");
+        // });
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/RegisterCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("RegisterCtrl", function($scope, authFactory, $location){
+    $scope.title = "Please Register";
+
+
+    $scope.register = () =>{
+      authFactory.registerUser($scope.account)
+      .then( (user) =>{
+        console.log('newUser',user);
+        $location.url("/login");
+        authFactory.loginUser($scope.account);
+      })
+      .catch( error=>{
+        console.log('errrorq',error);
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/authFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("authFactory", function(FBCreds){
+
+    const registerUser = function({email, password}){
+        return firebase
+        .auth()
+        .createUserWithEmailAndPassword(email, password);
+      };
+
+    const loginUser = ({email, password})=>{
+      return firebase.auth()
+      .signInWithEmailAndPassword(email, password);
+    };
+
+    return { registerUser, loginUser };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/noteFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("noteFactory", function(FBUrl, $q, $http){
+    // function that sends 'note' to FB with user id and note.body
+    function saveNewNoteToFB(newNote) {
+      return $q((resolve, reject)=>{
+        $http.post(`${FBUrl}/notes.json`,
+        JSON.stringify(newNote)
+        ).then( data =>{
+          resolve(data, newNote);
+        }).catch(err=>{
+          console.log('err',err);
+        });
+      });
+    }
+
+    // function that GETs the notes from firebase, and 
+    // assigns $scope.noteList to the list of notes, after converting it to an array?
+
+    // $http.get(`${FBUrl}/notes.json`)
+
+
+    function getNotesFromFB(){
+      return $q((resolve,reject)=>{
+        $http.get(`${FBUrl}/notes.json?orderBy="uid"&equalTo="${firebase.auth().currentUser.uid}"`)
+        .then(({data})=>{
+          // Object.keys(data.data).map(key => {
+          //   data.data[key].FBid = key;
+          // });
+          console.log('data in factry',data);
+          resolve(data);
+        });
+      });
+    }
+
+    return { getNotesFromFB, saveNewNoteToFB };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/values/FBConfig.js
+//--------------------------------------------------------------------------------------------------------------------
+
+
+  module.constant("FBCreds", {
+    apiKey: "AIzaSyBI4K1hhLJ_JHCtdZbG1e0XazOLn1PhojQ",
+    authDomain: "testetization.firebaseapp.com"
+  });
+
+
+}) (angular.module ('UserNotesApp', ['ngRoute']));
+
+
+
+//====================================================================================================================
+// Module:    UserNotesApp
+// Optimized: Yes
+// File:      ../app/app.js
+//====================================================================================================================
+
+(function (module) {
+
+  "use strict";
+
+  let isAuth = (AuthFactory) => new Promise ((resolve, reject) => {
+    if(AuthFactory.isAuthenticated()){
+      // console.log("User is authenticated, resolve route promise");
+      resolve();
+    } else {
+      // console.log("User is not authenticated, reject route promise");
+      reject();
+    }
+  });
+
+  module
+  .constant("FBUrl", "https://testetization.firebaseio.com")
+  .config(($routeProvider)=>{
+    // TODO: add routing
+    $routeProvider
+    .when("/register", {
+      templateUrl:"partials/register.html",
+      controller:"RegisterCtrl"
+    })
+    .when("/login", {
+      templateUrl:"partials/login.html",
+      controller:"LoginCtrl"
+    })
+    .when("/noteList", {
+      templateUrl:"partials/noteList.html",
+      controller:"ItemListCtrl",
+      resolve: {isAuth}
+    })
+    .when("/newNote", {
+      templateUrl:"partials/newNote.html",
+      controller:"NewNoteCtrl",
+      resolve: {isAuth}
+    })
+    .otherwise("/login")
+    ;
+
+    // when a user is logged in, they will be able to see thet button anchors that 
+    // allow them to add a new note and view their note list
+    // if not logged in, they will not be able to see these buttons
+
+    // When a user logs in, or is automatically logged in, it will take them to their note list
+  })
+  .run(FBCreds =>{
+    let creds = FBCreds;
+    let authConfig = {
+      apiKey: creds.apiKey,
+      authDomain: creds.authDomain
+    };
+      firebase.initializeApp(authConfig);
+  });
+
+
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/ItemListCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("ItemListCtrl", function($scope, noteFactory){
+    $scope.title = "Your notes, my dude.";
+
+
+
+    noteFactory.getNotesFromFB()
+    .then((notes)=>{
+      console.log('dataaaa',notes);
+      if(notes !== null && notes !== undefined){
+        $scope.noteList = Object.keys(notes).map(key => {
+          // notes[key].FBid = key;
+          return notes[key];
+        });
+      }else{
+        $scope.message = "You need some notes, my dude.";
+      }
+      console.log('scopeitems',  $scope.noteList);
+    });
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/LoginCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("LoginCtrl", function($scope, authFactory, $window){
+  $scope.title = "Please Login";
+
+
+
+  $scope.login = ()=>{
+    authFactory.loginUser($scope.account).then(user=>{
+      console.log('logged in user: ',user);
+      $window.location.href = "#!/noteList";
+    });
+  };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NavBarCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NavBarCtrl", function($scope){
+    $scope.thisUserRightHere = firebase.auth().currentUser.uid;
+
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NewNoteCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NewNoteCtrl", function($scope, noteFactory, $location){
+
+    $scope.saveNewNote = () =>{
+      $scope.note.uid = firebase.auth().currentUser.uid;
+      noteFactory.saveNewNoteToFB($scope.note)
+      // .then(data=>{
+
+        // noteFactory.getNotesFromFB()
+        .then(allnotes=>{
+          console.log('allnotes',allnotes);
+          $location.url("/noteList");
+        // });
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/RegisterCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("RegisterCtrl", function($scope, authFactory, $location){
+    $scope.title = "Please Register";
+
+
+    $scope.register = () =>{
+      authFactory.registerUser($scope.account)
+      .then( (user) =>{
+        console.log('newUser',user);
+        $location.url("/login");
+        authFactory.loginUser($scope.account);
+      })
+      .catch( error=>{
+        console.log('errrorq',error);
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/authFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("authFactory", function(FBCreds){
+
+    const registerUser = function({email, password}){
+        return firebase
+        .auth()
+        .createUserWithEmailAndPassword(email, password);
+      };
+
+    const loginUser = ({email, password})=>{
+      return firebase.auth()
+      .signInWithEmailAndPassword(email, password);
+    };
+
+    return { registerUser, loginUser };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/noteFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("noteFactory", function(FBUrl, $q, $http){
+    // function that sends 'note' to FB with user id and note.body
+    function saveNewNoteToFB(newNote) {
+      return $q((resolve, reject)=>{
+        $http.post(`${FBUrl}/notes.json`,
+        JSON.stringify(newNote)
+        ).then( data =>{
+          resolve(data, newNote);
+        }).catch(err=>{
+          console.log('err',err);
+        });
+      });
+    }
+
+    // function that GETs the notes from firebase, and 
+    // assigns $scope.noteList to the list of notes, after converting it to an array?
+
+    // $http.get(`${FBUrl}/notes.json`)
+
+
+    function getNotesFromFB(){
+      return $q((resolve,reject)=>{
+        $http.get(`${FBUrl}/notes.json?orderBy="uid"&equalTo="${firebase.auth().currentUser.uid}"`)
+        .then(({data})=>{
+          // Object.keys(data.data).map(key => {
+          //   data.data[key].FBid = key;
+          // });
+          console.log('data in factry',data);
+          resolve(data);
+        });
+      });
+    }
+
+    return { getNotesFromFB, saveNewNoteToFB };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/values/FBConfig.js
+//--------------------------------------------------------------------------------------------------------------------
+
+
+  module.constant("FBCreds", {
+    apiKey: "AIzaSyBI4K1hhLJ_JHCtdZbG1e0XazOLn1PhojQ",
+    authDomain: "testetization.firebaseapp.com"
+  });
+
+
+}) (angular.module ('UserNotesApp', ['ngRoute']));
+
+
+
+//====================================================================================================================
+// Module:    UserNotesApp
+// Optimized: Yes
+// File:      ../app/app.js
+//====================================================================================================================
+
+(function (module) {
+
+  "use strict";
+
+  let isAuth = (AuthFactory) => new Promise ((resolve, reject) => {
+    if(AuthFactory.isAuthenticated()){
+      // console.log("User is authenticated, resolve route promise");
+      resolve();
+    } else {
+      // console.log("User is not authenticated, reject route promise");
+      reject();
+    }
+  });
+
+  module
+  .constant("FBUrl", "https://testetization.firebaseio.com")
+  .config(($routeProvider)=>{
+    // TODO: add routing
+    $routeProvider
+    .when("/register", {
+      templateUrl:"partials/register.html",
+      controller:"RegisterCtrl"
+    })
+    .when("/login", {
+      templateUrl:"partials/login.html",
+      controller:"LoginCtrl"
+    })
+    .when("/noteList", {
+      templateUrl:"partials/noteList.html",
+      controller:"ItemListCtrl",
+      resolve: {isAuth}
+    })
+    .when("/newNote", {
+      templateUrl:"partials/newNote.html",
+      controller:"NewNoteCtrl",
+      resolve: {isAuth}
+    })
+    .otherwise("/login")
+    ;
+
+    // when a user is logged in, they will be able to see thet button anchors that 
+    // allow them to add a new note and view their note list
+    // if not logged in, they will not be able to see these buttons
+
+    // When a user logs in, or is automatically logged in, it will take them to their note list
+  })
+  .run(FBCreds =>{
+    let creds = FBCreds;
+    let authConfig = {
+      apiKey: creds.apiKey,
+      authDomain: creds.authDomain
+    };
+      firebase.initializeApp(authConfig);
+  });
+
+
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/ItemListCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("ItemListCtrl", function($scope, noteFactory){
+    $scope.title = "Your notes, my dude.";
+
+
+
+    noteFactory.getNotesFromFB()
+    .then((notes)=>{
+      console.log('dataaaa',notes);
+      if(notes !== null && notes !== undefined){
+        $scope.noteList = Object.keys(notes).map(key => {
+          // notes[key].FBid = key;
+          return notes[key];
+        });
+      }else{
+        $scope.message = "You need some notes, my dude.";
+      }
+      console.log('scopeitems',  $scope.noteList);
+    });
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/LoginCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("LoginCtrl", function($scope, authFactory, $window){
+  $scope.title = "Please Login";
+
+
+
+  $scope.login = ()=>{
+    authFactory.loginUser($scope.account).then(user=>{
+      console.log('logged in user: ',user);
+      $window.location.href = "#!/noteList";
+    });
+  };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NavBarCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NavBarCtrl", function($scope){
+    $scope.thisUserRightHere = firebase.auth().currentUser.uid;
+
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NewNoteCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NewNoteCtrl", function($scope, noteFactory, $location){
+
+    $scope.saveNewNote = () =>{
+      $scope.note.uid = firebase.auth().currentUser.uid;
+      noteFactory.saveNewNoteToFB($scope.note)
+      // .then(data=>{
+
+        // noteFactory.getNotesFromFB()
+        .then(allnotes=>{
+          console.log('allnotes',allnotes);
+          $location.url("/noteList");
+        // });
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/RegisterCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("RegisterCtrl", function($scope, authFactory, $location){
+    $scope.title = "Please Register";
+
+
+    $scope.register = () =>{
+      authFactory.registerUser($scope.account)
+      .then( (user) =>{
+        console.log('newUser',user);
+        $location.url("/login");
+        authFactory.loginUser($scope.account);
+      })
+      .catch( error=>{
+        console.log('errrorq',error);
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/authFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("authFactory", function(FBCreds){
+
+
+
+    const registerUser = function({email, password}){
+        return firebase
+        .auth()
+        .createUserWithEmailAndPassword(email, password);
+      };
+
+    const loginUser = ({email, password})=>{
+      return firebase.auth()
+      .signInWithEmailAndPassword(email, password);
+    };
+
+    return { registerUser, loginUser };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/noteFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("noteFactory", function(FBUrl, $q, $http){
+    // function that sends 'note' to FB with user id and note.body
+    function saveNewNoteToFB(newNote) {
+      return $q((resolve, reject)=>{
+        $http.post(`${FBUrl}/notes.json`,
+        JSON.stringify(newNote)
+        ).then( data =>{
+          resolve(data, newNote);
+        }).catch(err=>{
+          console.log('err',err);
+        });
+      });
+    }
+
+    // function that GETs the notes from firebase, and 
+    // assigns $scope.noteList to the list of notes, after converting it to an array?
+
+    // $http.get(`${FBUrl}/notes.json`)
+
+
+    function getNotesFromFB(){
+      return $q((resolve,reject)=>{
+        $http.get(`${FBUrl}/notes.json?orderBy="uid"&equalTo="${firebase.auth().currentUser.uid}"`)
+        .then(({data})=>{
+          // Object.keys(data.data).map(key => {
+          //   data.data[key].FBid = key;
+          // });
+          console.log('data in factry',data);
+          resolve(data);
+        });
+      });
+    }
+
+    return { getNotesFromFB, saveNewNoteToFB };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/values/FBConfig.js
+//--------------------------------------------------------------------------------------------------------------------
+
+
+  module.constant("FBCreds", {
+    apiKey: "AIzaSyBI4K1hhLJ_JHCtdZbG1e0XazOLn1PhojQ",
+    authDomain: "testetization.firebaseapp.com"
+  });
+
+
+}) (angular.module ('UserNotesApp', ['ngRoute']));
+
+
+
+//====================================================================================================================
+// Module:    UserNotesApp
+// Optimized: Yes
+// File:      ../app/app.js
+//====================================================================================================================
+
+(function (module) {
+
+  "use strict";
+
+  let isAuth = (AuthFactory) => new Promise ((resolve, reject) => {
+    if(AuthFactory.isAuthenticated()){
+      // console.log("User is authenticated, resolve route promise");
+      resolve();
+    } else {
+      // console.log("User is not authenticated, reject route promise");
+      reject();
+    }
+  });
+
+  module
+  .constant("FBUrl", "https://testetization.firebaseio.com")
+  .config(($routeProvider)=>{
+    // TODO: add routing
+    $routeProvider
+    .when("/register", {
+      templateUrl:"partials/register.html",
+      controller:"RegisterCtrl"
+    })
+    .when("/login", {
+      templateUrl:"partials/login.html",
+      controller:"LoginCtrl"
+    })
+    .when("/noteList", {
+      templateUrl:"partials/noteList.html",
+      controller:"ItemListCtrl",
+      resolve: {isAuth}
+    })
+    .when("/newNote", {
+      templateUrl:"partials/newNote.html",
+      controller:"NewNoteCtrl",
+      resolve: {isAuth}
+    })
+    .otherwise("/login")
+    ;
+
+    // when a user is logged in, they will be able to see thet button anchors that 
+    // allow them to add a new note and view their note list
+    // if not logged in, they will not be able to see these buttons
+
+    // When a user logs in, or is automatically logged in, it will take them to their note list
+  })
+  .run(FBCreds =>{
+    let creds = FBCreds;
+    let authConfig = {
+      apiKey: creds.apiKey,
+      authDomain: creds.authDomain
+    };
+      firebase.initializeApp(authConfig);
+  });
+
+
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/ItemListCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("ItemListCtrl", function($scope, noteFactory){
+    $scope.title = "Your notes, my dude.";
+
+
+
+    noteFactory.getNotesFromFB()
+    .then((notes)=>{
+      console.log('dataaaa',notes);
+      if(notes !== null && notes !== undefined){
+        $scope.noteList = Object.keys(notes).map(key => {
+          // notes[key].FBid = key;
+          return notes[key];
+        });
+      }else{
+        $scope.message = "You need some notes, my dude.";
+      }
+      console.log('scopeitems',  $scope.noteList);
+    });
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/LoginCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("LoginCtrl", function($scope, authFactory, $window){
+  $scope.title = "Please Login";
+
+
+
+  $scope.login = ()=>{
+    authFactory.loginUser($scope.account).then(user=>{
+      console.log('logged in user: ',user);
+      $window.location.href = "#!/noteList";
+    });
+  };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NavBarCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NavBarCtrl", function($scope){
+    $scope.thisUserRightHere = firebase.auth().currentUser.uid;
+
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NewNoteCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NewNoteCtrl", function($scope, noteFactory, $location){
+
+    $scope.saveNewNote = () =>{
+      $scope.note.uid = firebase.auth().currentUser.uid;
+      noteFactory.saveNewNoteToFB($scope.note)
+      // .then(data=>{
+
+        // noteFactory.getNotesFromFB()
+        .then(allnotes=>{
+          console.log('allnotes',allnotes);
+          $location.url("/noteList");
+        // });
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/RegisterCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("RegisterCtrl", function($scope, authFactory, $location){
+    $scope.title = "Please Register";
+
+
+    $scope.register = () =>{
+      authFactory.registerUser($scope.account)
+      .then( (user) =>{
+        console.log('newUser',user);
+        authFactory.getUser();
+        $location.url("/login");
+        authFactory.loginUser($scope.account);
+      })
+      .catch( error=>{
+        console.log('errrorq',error);
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/authFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("authFactory", function(FBCreds){
+
+    let getUser = () => {
+      return firebase.auth().currentUser;
+    };
+
+    const registerUser = function({email, password}){
+        return firebase
+        .auth()
+        .createUserWithEmailAndPassword(email, password);
+      };
+
+    const loginUser = ({email, password})=>{
+      return firebase.auth()
+      .signInWithEmailAndPassword(email, password);
+    };
+
+    return { registerUser, loginUser, getUser };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/noteFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("noteFactory", function(FBUrl, $q, $http){
+    // function that sends 'note' to FB with user id and note.body
+    function saveNewNoteToFB(newNote) {
+      return $q((resolve, reject)=>{
+        $http.post(`${FBUrl}/notes.json`,
+        JSON.stringify(newNote)
+        ).then( data =>{
+          resolve(data, newNote);
+        }).catch(err=>{
+          console.log('err',err);
+        });
+      });
+    }
+
+    // function that GETs the notes from firebase, and 
+    // assigns $scope.noteList to the list of notes, after converting it to an array?
+
+    // $http.get(`${FBUrl}/notes.json`)
+
+
+    function getNotesFromFB(){
+      return $q((resolve,reject)=>{
+        $http.get(`${FBUrl}/notes.json?orderBy="uid"&equalTo="${firebase.auth().currentUser.uid}"`)
+        .then(({data})=>{
+          // Object.keys(data.data).map(key => {
+          //   data.data[key].FBid = key;
+          // });
+          console.log('data in factry',data);
+          resolve(data);
+        });
+      });
+    }
+
+    return { getNotesFromFB, saveNewNoteToFB };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/values/FBConfig.js
+//--------------------------------------------------------------------------------------------------------------------
+
+
+  module.constant("FBCreds", {
+    apiKey: "AIzaSyBI4K1hhLJ_JHCtdZbG1e0XazOLn1PhojQ",
+    authDomain: "testetization.firebaseapp.com"
+  });
+
+
+}) (angular.module ('UserNotesApp', ['ngRoute']));
+
+
+
+//====================================================================================================================
+// Module:    UserNotesApp
+// Optimized: Yes
+// File:      ../app/app.js
+//====================================================================================================================
+
+(function (module) {
+
+  "use strict";
+
+  let isAuth = (AuthFactory) => new Promise ((resolve, reject) => {
+    if(AuthFactory.isAuthenticated()){
+      // console.log("User is authenticated, resolve route promise");
+      resolve();
+    } else {
+      // console.log("User is not authenticated, reject route promise");
+      reject();
+    }
+  });
+
+  module
+  .constant("FBUrl", "https://testetization.firebaseio.com")
+  .config(($routeProvider)=>{
+    // TODO: add routing
+    $routeProvider
+    .when("/register", {
+      templateUrl:"partials/register.html",
+      controller:"RegisterCtrl"
+    })
+    .when("/login", {
+      templateUrl:"partials/login.html",
+      controller:"LoginCtrl"
+    })
+    .when("/noteList", {
+      templateUrl:"partials/noteList.html",
+      controller:"ItemListCtrl",
+      resolve: {isAuth}
+    })
+    .when("/newNote", {
+      templateUrl:"partials/newNote.html",
+      controller:"NewNoteCtrl",
+      resolve: {isAuth}
+    })
+    .otherwise("/login")
+    ;
+
+    // when a user is logged in, they will be able to see thet button anchors that 
+    // allow them to add a new note and view their note list
+    // if not logged in, they will not be able to see these buttons
+
+    // When a user logs in, or is automatically logged in, it will take them to their note list
+  })
+  .run(FBCreds =>{
+    let creds = FBCreds;
+    let authConfig = {
+      apiKey: creds.apiKey,
+      authDomain: creds.authDomain
+    };
+      firebase.initializeApp(authConfig);
+  });
+
+
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/ItemListCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("ItemListCtrl", function($scope, noteFactory){
+    $scope.title = "Your notes, my dude.";
+
+
+
+    noteFactory.getNotesFromFB()
+    .then((notes)=>{
+      console.log('dataaaa',notes);
+      if(notes !== null && notes !== undefined){
+        $scope.noteList = Object.keys(notes).map(key => {
+          // notes[key].FBid = key;
+          return notes[key];
+        });
+      }else{
+        $scope.message = "You need some notes, my dude.";
+      }
+      console.log('scopeitems',  $scope.noteList);
+    });
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/LoginCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("LoginCtrl", function($scope, authFactory, $window){
+  $scope.title = "Please Login";
+
+
+
+  $scope.login = ()=>{
+    authFactory.loginUser($scope.account).then(user=>{
+      console.log('logged in user: ',user);
+      $window.location.href = "#!/noteList";
+    });
+  };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NavBarCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NavBarCtrl", function($scope, authFactory){
+    $scope.thisUserRightHere = authFactory.getUser();
+
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NewNoteCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NewNoteCtrl", function($scope, noteFactory, $location){
+
+    $scope.saveNewNote = () =>{
+      $scope.note.uid = firebase.auth().currentUser.uid;
+      noteFactory.saveNewNoteToFB($scope.note)
+      // .then(data=>{
+
+        // noteFactory.getNotesFromFB()
+        .then(allnotes=>{
+          console.log('allnotes',allnotes);
+          $location.url("/noteList");
+        // });
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/RegisterCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("RegisterCtrl", function($scope, authFactory, $location){
+    $scope.title = "Please Register";
+
+
+    $scope.register = () =>{
+      authFactory.registerUser($scope.account)
+      .then( (user) =>{
+        console.log('newUser',user);
+        authFactory.getUser();
+        $location.url("/login");
+        authFactory.loginUser($scope.account);
+      })
+      .catch( error=>{
+        console.log('errrorq',error);
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/authFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("authFactory", function(FBCreds){
+
+    let getUser = () => {
+      return firebase.auth().currentUser;
+    };
+
+    const registerUser = function({email, password}){
+        return firebase
+        .auth()
+        .createUserWithEmailAndPassword(email, password);
+      };
+
+    const loginUser = ({email, password})=>{
+      return firebase.auth()
+      .signInWithEmailAndPassword(email, password);
+    };
+
+    return { registerUser, loginUser, getUser };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/noteFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("noteFactory", function(FBUrl, $q, $http){
+    // function that sends 'note' to FB with user id and note.body
+    function saveNewNoteToFB(newNote) {
+      return $q((resolve, reject)=>{
+        $http.post(`${FBUrl}/notes.json`,
+        JSON.stringify(newNote)
+        ).then( data =>{
+          resolve(data, newNote);
+        }).catch(err=>{
+          console.log('err',err);
+        });
+      });
+    }
+
+    // function that GETs the notes from firebase, and 
+    // assigns $scope.noteList to the list of notes, after converting it to an array?
+
+    // $http.get(`${FBUrl}/notes.json`)
+
+
+    function getNotesFromFB(){
+      return $q((resolve,reject)=>{
+        $http.get(`${FBUrl}/notes.json?orderBy="uid"&equalTo="${firebase.auth().currentUser.uid}"`)
+        .then(({data})=>{
+          // Object.keys(data.data).map(key => {
+          //   data.data[key].FBid = key;
+          // });
+          console.log('data in factry',data);
+          resolve(data);
+        });
+      });
+    }
+
+    return { getNotesFromFB, saveNewNoteToFB };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/values/FBConfig.js
+//--------------------------------------------------------------------------------------------------------------------
+
+
+  module.constant("FBCreds", {
+    apiKey: "AIzaSyBI4K1hhLJ_JHCtdZbG1e0XazOLn1PhojQ",
+    authDomain: "testetization.firebaseapp.com"
+  });
+
+
+}) (angular.module ('UserNotesApp', ['ngRoute']));
+
+
+
+//====================================================================================================================
+// Module:    UserNotesApp
+// Optimized: Yes
+// File:      ../app/app.js
+//====================================================================================================================
+
+(function (module) {
+
+  "use strict";
+
+  let isAuth = (authFactory) => new Promise ((resolve, reject) => {
+    if(authFactory.isAuthenticated()){
+      // console.log("User is authenticated, resolve route promise");
+      resolve();
+    } else {
+      // console.log("User is not authenticated, reject route promise");
+      reject();
+    }
+  });
+
+  module
+  .constant("FBUrl", "https://testetization.firebaseio.com")
+  .config(($routeProvider)=>{
+    // TODO: add routing
+    $routeProvider
+    .when("/register", {
+      templateUrl:"partials/register.html",
+      controller:"RegisterCtrl"
+    })
+    .when("/login", {
+      templateUrl:"partials/login.html",
+      controller:"LoginCtrl"
+    })
+    .when("/noteList", {
+      templateUrl:"partials/noteList.html",
+      controller:"ItemListCtrl",
+      resolve: {isAuth}
+    })
+    .when("/newNote", {
+      templateUrl:"partials/newNote.html",
+      controller:"NewNoteCtrl",
+      resolve: {isAuth}
+    })
+    .otherwise("/login")
+    ;
+
+    // when a user is logged in, they will be able to see thet button anchors that 
+    // allow them to add a new note and view their note list
+    // if not logged in, they will not be able to see these buttons
+
+    // When a user logs in, or is automatically logged in, it will take them to their note list
+  })
+  .run(FBCreds =>{
+    let creds = FBCreds;
+    let authConfig = {
+      apiKey: creds.apiKey,
+      authDomain: creds.authDomain
+    };
+      firebase.initializeApp(authConfig);
+  });
+
+
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/ItemListCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("ItemListCtrl", function($scope, noteFactory){
+    $scope.title = "Your notes, my dude.";
+
+
+
+    noteFactory.getNotesFromFB()
+    .then((notes)=>{
+      console.log('dataaaa',notes);
+      if(notes !== null && notes !== undefined){
+        $scope.noteList = Object.keys(notes).map(key => {
+          // notes[key].FBid = key;
+          return notes[key];
+        });
+      }else{
+        $scope.message = "You need some notes, my dude.";
+      }
+      console.log('scopeitems',  $scope.noteList);
+    });
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/LoginCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("LoginCtrl", function($scope, authFactory, $window){
+  $scope.title = "Please Login";
+
+
+
+  $scope.login = ()=>{
+    authFactory.loginUser($scope.account).then(user=>{
+      console.log('logged in user: ',user);
+      $window.location.href = "#!/noteList";
+    });
+  };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NavBarCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NavBarCtrl", function($scope, authFactory){
+    $scope.thisUserRightHere = authFactory.getUser();
+
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NewNoteCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NewNoteCtrl", function($scope, noteFactory, $location){
+
+    $scope.saveNewNote = () =>{
+      $scope.note.uid = firebase.auth().currentUser.uid;
+      noteFactory.saveNewNoteToFB($scope.note)
+      // .then(data=>{
+
+        // noteFactory.getNotesFromFB()
+        .then(allnotes=>{
+          console.log('allnotes',allnotes);
+          $location.url("/noteList");
+        // });
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/RegisterCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("RegisterCtrl", function($scope, authFactory, $location){
+    $scope.title = "Please Register";
+
+
+    $scope.register = () =>{
+      authFactory.registerUser($scope.account)
+      .then( (user) =>{
+        console.log('newUser',user);
+        authFactory.getUser();
+        $location.url("/login");
+        authFactory.loginUser($scope.account);
+      })
+      .catch( error=>{
+        console.log('errrorq',error);
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/authFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("authFactory", function(FBCreds){
+
+    let getUser = () => {
+      return firebase.auth().currentUser;
+    };
+
+    const registerUser = function({email, password}){
+        return firebase
+        .auth()
+        .createUserWithEmailAndPassword(email, password);
+      };
+
+    const loginUser = ({email, password})=>{
+      return firebase.auth()
+      .signInWithEmailAndPassword(email, password);
+    };
+
+    return { registerUser, loginUser, getUser };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/noteFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("noteFactory", function(FBUrl, $q, $http){
+    // function that sends 'note' to FB with user id and note.body
+    function saveNewNoteToFB(newNote) {
+      return $q((resolve, reject)=>{
+        $http.post(`${FBUrl}/notes.json`,
+        JSON.stringify(newNote)
+        ).then( data =>{
+          resolve(data, newNote);
+        }).catch(err=>{
+          console.log('err',err);
+        });
+      });
+    }
+
+    // function that GETs the notes from firebase, and 
+    // assigns $scope.noteList to the list of notes, after converting it to an array?
+
+    // $http.get(`${FBUrl}/notes.json`)
+
+
+    function getNotesFromFB(){
+      return $q((resolve,reject)=>{
+        $http.get(`${FBUrl}/notes.json?orderBy="uid"&equalTo="${firebase.auth().currentUser.uid}"`)
+        .then(({data})=>{
+          // Object.keys(data.data).map(key => {
+          //   data.data[key].FBid = key;
+          // });
+          console.log('data in factry',data);
+          resolve(data);
+        });
+      });
+    }
+
+    return { getNotesFromFB, saveNewNoteToFB };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/values/FBConfig.js
+//--------------------------------------------------------------------------------------------------------------------
+
+
+  module.constant("FBCreds", {
+    apiKey: "AIzaSyBI4K1hhLJ_JHCtdZbG1e0XazOLn1PhojQ",
+    authDomain: "testetization.firebaseapp.com"
+  });
+
+
+}) (angular.module ('UserNotesApp', ['ngRoute']));
+
+
+
+//====================================================================================================================
+// Module:    UserNotesApp
+// Optimized: Yes
+// File:      ../app/app.js
+//====================================================================================================================
+
+(function (module) {
+
+  "use strict";
+
+  let isAuth = (authFactory) => new Promise ((resolve, reject) => {
+    if(authFactory.isAuthenticated()){
+      // console.log("User is authenticated, resolve route promise");
+      resolve();
+    } else {
+      // console.log("User is not authenticated, reject route promise");
+      reject();
+    }
+  });
+
+  module
+  .constant("FBUrl", "https://testetization.firebaseio.com")
+  .config(($routeProvider)=>{
+    // TODO: add routing
+    $routeProvider
+    .when("/register", {
+      templateUrl:"partials/register.html",
+      controller:"RegisterCtrl"
+    })
+    .when("/login", {
+      templateUrl:"partials/login.html",
+      controller:"LoginCtrl"
+    })
+    .when("/noteList", {
+      templateUrl:"partials/noteList.html",
+      controller:"ItemListCtrl",
+      resolve: {isAuth}
+    })
+    .when("/newNote", {
+      templateUrl:"partials/newNote.html",
+      controller:"NewNoteCtrl",
+      resolve: {isAuth}
+    })
+    .otherwise("/login")
+    ;
+
+    // when a user is logged in, they will be able to see thet button anchors that 
+    // allow them to add a new note and view their note list
+    // if not logged in, they will not be able to see these buttons
+
+    // When a user logs in, or is automatically logged in, it will take them to their note list
+  })
+  .run(FBCreds =>{
+    let creds = FBCreds;
+    let authConfig = {
+      apiKey: creds.apiKey,
+      authDomain: creds.authDomain
+    };
+      firebase.initializeApp(authConfig);
+  });
+
+
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/ItemListCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("ItemListCtrl", function($scope, noteFactory){
+    $scope.title = "Your notes, my dude.";
+
+
+
+    noteFactory.getNotesFromFB()
+    .then((notes)=>{
+      console.log('dataaaa',notes);
+      if(notes !== null && notes !== undefined){
+        $scope.noteList = Object.keys(notes).map(key => {
+          // notes[key].FBid = key;
+          return notes[key];
+        });
+      }else{
+        $scope.message = "You need some notes, my dude.";
+      }
+      console.log('scopeitems',  $scope.noteList);
+    });
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/LoginCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("LoginCtrl", function($scope, authFactory, $window){
+  $scope.title = "Please Login";
+
+
+
+  $scope.login = ()=>{
+    authFactory.loginUser($scope.account).then(user=>{
+      console.log('logged in user: ',user);
+      $window.location.href = "#!/noteList";
+    });
+  };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NavBarCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NavBarCtrl", function($scope, authFactory){
+    $scope.thisUserRightHere = authFactory.getUser();
+
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NewNoteCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NewNoteCtrl", function($scope, noteFactory, $location){
+
+    $scope.saveNewNote = () =>{
+      $scope.note.uid = firebase.auth().currentUser.uid;
+      noteFactory.saveNewNoteToFB($scope.note)
+      // .then(data=>{
+
+        // noteFactory.getNotesFromFB()
+        .then(allnotes=>{
+          console.log('allnotes',allnotes);
+          $location.url("/noteList");
+        // });
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/RegisterCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("RegisterCtrl", function($scope, authFactory, $location){
+    $scope.title = "Please Register";
+
+
+    $scope.register = () =>{
+      authFactory.registerUser($scope.account)
+      .then( (user) =>{
+        console.log('newUser',user);
+        authFactory.getUser();
+        $location.url("/login");
+        authFactory.loginUser($scope.account);
+      })
+      .catch( error=>{
+        console.log('errrorq',error);
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/authFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("authFactory", function(FBCreds){
+
+    let getUser = () => {
+      return firebase.auth().currentUser;
+    };
+
+    const registerUser = function({email, password}){
+        return firebase
+        .auth()
+        .createUserWithEmailAndPassword(email, password);
+      };
+
+    const loginUser = ({email, password})=>{
+      return firebase.auth()
+      .signInWithEmailAndPassword(email, password);
+    };
+
+    let isAuthenticated = () => {
+      return firebase.auth().currentUser ? true : false;
+    };
+
+    return { registerUser, loginUser, getUser, isAuthenticated };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/noteFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("noteFactory", function(FBUrl, $q, $http){
+    // function that sends 'note' to FB with user id and note.body
+    function saveNewNoteToFB(newNote) {
+      return $q((resolve, reject)=>{
+        $http.post(`${FBUrl}/notes.json`,
+        JSON.stringify(newNote)
+        ).then( data =>{
+          resolve(data, newNote);
+        }).catch(err=>{
+          console.log('err',err);
+        });
+      });
+    }
+
+    // function that GETs the notes from firebase, and 
+    // assigns $scope.noteList to the list of notes, after converting it to an array?
+
+    // $http.get(`${FBUrl}/notes.json`)
+
+
+    function getNotesFromFB(){
+      return $q((resolve,reject)=>{
+        $http.get(`${FBUrl}/notes.json?orderBy="uid"&equalTo="${firebase.auth().currentUser.uid}"`)
+        .then(({data})=>{
+          // Object.keys(data.data).map(key => {
+          //   data.data[key].FBid = key;
+          // });
+          console.log('data in factry',data);
+          resolve(data);
+        });
+      });
+    }
+
+    return { getNotesFromFB, saveNewNoteToFB };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/values/FBConfig.js
+//--------------------------------------------------------------------------------------------------------------------
+
+
+  module.constant("FBCreds", {
+    apiKey: "AIzaSyBI4K1hhLJ_JHCtdZbG1e0XazOLn1PhojQ",
+    authDomain: "testetization.firebaseapp.com"
+  });
+
+
+}) (angular.module ('UserNotesApp', ['ngRoute']));
+
+
+
+//====================================================================================================================
+// Module:    UserNotesApp
+// Optimized: Yes
+// File:      ../app/app.js
+//====================================================================================================================
+
+(function (module) {
+
+  "use strict";
+
+  let isAuth = (authFactory) => new Promise ((resolve, reject) => {
+    if(authFactory.isAuthenticated()){
+      // console.log("User is authenticated, resolve route promise");
+      resolve();
+    } else {
+      // console.log("User is not authenticated, reject route promise");
+      reject();
+    }
+  });
+
+  module
+  .constant("FBUrl", "https://testetization.firebaseio.com")
+  .config(($routeProvider)=>{
+    // TODO: add routing
+    $routeProvider
+    .when("/register", {
+      templateUrl:"partials/register.html",
+      controller:"RegisterCtrl"
+    })
+    .when("/login", {
+      templateUrl:"partials/login.html",
+      controller:"LoginCtrl"
+    })
+    .when("/noteList", {
+      templateUrl:"partials/noteList.html",
+      controller:"ItemListCtrl",
+      resolve: {isAuth}
+    })
+    .when("/newNote", {
+      templateUrl:"partials/newNote.html",
+      controller:"NewNoteCtrl",
+      resolve: {isAuth}
+    })
+    .otherwise("/login")
+    ;
+
+    // when a user is logged in, they will be able to see thet button anchors that 
+    // allow them to add a new note and view their note list
+    // if not logged in, they will not be able to see these buttons
+
+    // When a user logs in, or is automatically logged in, it will take them to their note list
+  })
+  .run(FBCreds =>{
+    let creds = FBCreds;
+    let authConfig = {
+      apiKey: creds.apiKey,
+      authDomain: creds.authDomain
+    };
+      firebase.initializeApp(authConfig);
+  });
+
+
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/ItemListCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("ItemListCtrl", function($scope, noteFactory){
+    $scope.title = "Your notes, my dude.";
+
+
+
+    noteFactory.getNotesFromFB()
+    .then((notes)=>{
+      console.log('dataaaa',notes);
+      if(notes !== null && notes !== undefined){
+        $scope.noteList = Object.keys(notes).map(key => {
+          // notes[key].FBid = key;
+          return notes[key];
+        });
+      }else{
+        $scope.message = "You need some notes, my dude.";
+      }
+      console.log('scopeitems',  $scope.noteList);
+    });
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/LoginCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("LoginCtrl", function($scope, authFactory, $window){
+  $scope.title = "Please Login";
+
+
+
+  $scope.login = ()=>{
+    authFactory.loginUser($scope.account).then(user=>{
+      console.log('logged in user: ',user);
+      $window.location.href = "#!/noteList";
+    });
+  };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NavBarCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NavBarCtrl", function($scope, authFactory){
+    $scope.thisUserRightHere = authFactory.getUser();
+    let logout = () =>{
+      authFactory.logoutUser();
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NewNoteCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NewNoteCtrl", function($scope, noteFactory, $location){
+
+    $scope.saveNewNote = () =>{
+      $scope.note.uid = firebase.auth().currentUser.uid;
+      noteFactory.saveNewNoteToFB($scope.note)
+      // .then(data=>{
+
+        // noteFactory.getNotesFromFB()
+        .then(allnotes=>{
+          console.log('allnotes',allnotes);
+          $location.url("/noteList");
+        // });
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/RegisterCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("RegisterCtrl", function($scope, authFactory, $location){
+    $scope.title = "Please Register";
+
+
+    $scope.register = () =>{
+      authFactory.registerUser($scope.account)
+      .then( (user) =>{
+        console.log('newUser',user);
+        authFactory.getUser();
+        $location.url("/login");
+        authFactory.loginUser($scope.account);
+      })
+      .catch( error=>{
+        console.log('errrorq',error);
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/authFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("authFactory", function(FBCreds){
+
+    let getUser = () => {
+      return firebase.auth().currentUser;
+    };
+
+    const registerUser = function({email, password}){
+        return firebase
+        .auth()
+        .createUserWithEmailAndPassword(email, password);
+      };
+
+    const loginUser = ({email, password})=>{
+      return firebase.auth()
+      .signInWithEmailAndPassword(email, password);
+    };
+
+    let isAuthenticated = () => {
+      return firebase.auth().currentUser ? true : false;
+    };
+
+    let logoutUser = () => {
+      firebase.auth().signOut();
+    };
+
+    return { registerUser, loginUser, getUser, isAuthenticated, logoutUser };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/noteFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("noteFactory", function(FBUrl, $q, $http){
+    // function that sends 'note' to FB with user id and note.body
+    function saveNewNoteToFB(newNote) {
+      return $q((resolve, reject)=>{
+        $http.post(`${FBUrl}/notes.json`,
+        JSON.stringify(newNote)
+        ).then( data =>{
+          resolve(data, newNote);
+        }).catch(err=>{
+          console.log('err',err);
+        });
+      });
+    }
+
+    // function that GETs the notes from firebase, and 
+    // assigns $scope.noteList to the list of notes, after converting it to an array?
+
+    // $http.get(`${FBUrl}/notes.json`)
+
+
+    function getNotesFromFB(){
+      return $q((resolve,reject)=>{
+        $http.get(`${FBUrl}/notes.json?orderBy="uid"&equalTo="${firebase.auth().currentUser.uid}"`)
+        .then(({data})=>{
+          // Object.keys(data.data).map(key => {
+          //   data.data[key].FBid = key;
+          // });
+          console.log('data in factry',data);
+          resolve(data);
+        });
+      });
+    }
+
+    return { getNotesFromFB, saveNewNoteToFB };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/values/FBConfig.js
+//--------------------------------------------------------------------------------------------------------------------
+
+
+  module.constant("FBCreds", {
+    apiKey: "AIzaSyBI4K1hhLJ_JHCtdZbG1e0XazOLn1PhojQ",
+    authDomain: "testetization.firebaseapp.com"
+  });
+
+
+}) (angular.module ('UserNotesApp', ['ngRoute']));
+
+
+
+//====================================================================================================================
+// Module:    UserNotesApp
+// Optimized: Yes
+// File:      ../app/app.js
+//====================================================================================================================
+
+(function (module) {
+
+  "use strict";
+
+  let isAuth = (authFactory) => new Promise ((resolve, reject) => {
+    if(authFactory.isAuthenticated()){
+      // console.log("User is authenticated, resolve route promise");
+      resolve();
+    } else {
+      // console.log("User is not authenticated, reject route promise");
+      reject();
+    }
+  });
+
+  module
+  .constant("FBUrl", "https://testetization.firebaseio.com")
+  .config(($routeProvider)=>{
+    // TODO: add routing
+    $routeProvider
+    .when("/register", {
+      templateUrl:"partials/register.html",
+      controller:"RegisterCtrl"
+    })
+    .when("/login", {
+      templateUrl:"partials/login.html",
+      controller:"LoginCtrl"
+    })
+    .when("/noteList", {
+      templateUrl:"partials/noteList.html",
+      controller:"ItemListCtrl",
+      resolve: {isAuth}
+    })
+    .when("/newNote", {
+      templateUrl:"partials/newNote.html",
+      controller:"NewNoteCtrl",
+      resolve: {isAuth}
+    })
+    .otherwise("/login")
+    ;
+
+    // when a user is logged in, they will be able to see thet button anchors that 
+    // allow them to add a new note and view their note list
+    // if not logged in, they will not be able to see these buttons
+
+    // When a user logs in, or is automatically logged in, it will take them to their note list
+  })
+  .run(FBCreds =>{
+    let creds = FBCreds;
+    let authConfig = {
+      apiKey: creds.apiKey,
+      authDomain: creds.authDomain
+    };
+      firebase.initializeApp(authConfig);
+  });
+
+
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/ItemListCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("ItemListCtrl", function($scope, noteFactory){
+    $scope.title = "Your notes, my dude.";
+
+
+
+    noteFactory.getNotesFromFB()
+    .then((notes)=>{
+      console.log('dataaaa',notes);
+      if(notes !== null && notes !== undefined){
+        $scope.noteList = Object.keys(notes).map(key => {
+          // notes[key].FBid = key;
+          return notes[key];
+        });
+      }else{
+        $scope.message = "You need some notes, my dude.";
+      }
+      console.log('scopeitems',  $scope.noteList);
+    });
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/LoginCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("LoginCtrl", function($scope, authFactory, $window){
+  $scope.title = "Please Login";
+
+
+
+  $scope.login = ()=>{
+    authFactory.loginUser($scope.account).then(user=>{
+      console.log('logged in user: ',user);
+      $window.location.href = "#!/noteList";
+    });
+  };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NavBarCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NavBarCtrl", function($scope, authFactory, $location){
+    $scope.thisUserRightHere = authFactory.getUser();
+    let logout = () =>{
+      console.log('you are logged out');
+      authFactory.logoutUser();
+      $location.url('/auth');
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NewNoteCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NewNoteCtrl", function($scope, noteFactory, $location){
+
+    $scope.saveNewNote = () =>{
+      $scope.note.uid = firebase.auth().currentUser.uid;
+      noteFactory.saveNewNoteToFB($scope.note)
+      // .then(data=>{
+
+        // noteFactory.getNotesFromFB()
+        .then(allnotes=>{
+          console.log('allnotes',allnotes);
+          $location.url("/noteList");
+        // });
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/RegisterCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("RegisterCtrl", function($scope, authFactory, $location){
+    $scope.title = "Please Register";
+
+
+    $scope.register = () =>{
+      authFactory.registerUser($scope.account)
+      .then( (user) =>{
+        console.log('newUser',user);
+        authFactory.getUser();
+        $location.url("/login");
+        authFactory.loginUser($scope.account);
+      })
+      .catch( error=>{
+        console.log('errrorq',error);
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/authFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("authFactory", function(FBCreds){
+
+    let getUser = () => {
+      return firebase.auth().currentUser;
+    };
+
+    const registerUser = function({email, password}){
+        return firebase
+        .auth()
+        .createUserWithEmailAndPassword(email, password);
+      };
+
+    const loginUser = ({email, password})=>{
+      return firebase.auth()
+      .signInWithEmailAndPassword(email, password);
+    };
+
+    let isAuthenticated = () => {
+      return firebase.auth().currentUser ? true : false;
+    };
+
+    let logoutUser = () => {
+      firebase.auth().signOut();
+    };
+
+    return { registerUser, loginUser, getUser, isAuthenticated, logoutUser };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/noteFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("noteFactory", function(FBUrl, $q, $http){
+    // function that sends 'note' to FB with user id and note.body
+    function saveNewNoteToFB(newNote) {
+      return $q((resolve, reject)=>{
+        $http.post(`${FBUrl}/notes.json`,
+        JSON.stringify(newNote)
+        ).then( data =>{
+          resolve(data, newNote);
+        }).catch(err=>{
+          console.log('err',err);
+        });
+      });
+    }
+
+    // function that GETs the notes from firebase, and 
+    // assigns $scope.noteList to the list of notes, after converting it to an array?
+
+    // $http.get(`${FBUrl}/notes.json`)
+
+
+    function getNotesFromFB(){
+      return $q((resolve,reject)=>{
+        $http.get(`${FBUrl}/notes.json?orderBy="uid"&equalTo="${firebase.auth().currentUser.uid}"`)
+        .then(({data})=>{
+          // Object.keys(data.data).map(key => {
+          //   data.data[key].FBid = key;
+          // });
+          console.log('data in factry',data);
+          resolve(data);
+        });
+      });
+    }
+
+    return { getNotesFromFB, saveNewNoteToFB };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/values/FBConfig.js
+//--------------------------------------------------------------------------------------------------------------------
+
+
+  module.constant("FBCreds", {
+    apiKey: "AIzaSyBI4K1hhLJ_JHCtdZbG1e0XazOLn1PhojQ",
+    authDomain: "testetization.firebaseapp.com"
+  });
+
+
+}) (angular.module ('UserNotesApp', ['ngRoute']));
+
+
+
+//====================================================================================================================
+// Module:    UserNotesApp
+// Optimized: Yes
+// File:      ../app/app.js
+//====================================================================================================================
+
+(function (module) {
+
+  "use strict";
+
+  let isAuth = (authFactory) => new Promise ((resolve, reject) => {
+    if(authFactory.isAuthenticated()){
+      // console.log("User is authenticated, resolve route promise");
+      resolve();
+    } else {
+      // console.log("User is not authenticated, reject route promise");
+      reject();
+    }
+  });
+
+  module
+  .constant("FBUrl", "https://testetization.firebaseio.com")
+  .config(($routeProvider)=>{
+    // TODO: add routing
+    $routeProvider
+    .when("/register", {
+      templateUrl:"partials/register.html",
+      controller:"RegisterCtrl"
+    })
+    .when("/login", {
+      templateUrl:"partials/login.html",
+      controller:"LoginCtrl"
+    })
+    .when("/noteList", {
+      templateUrl:"partials/noteList.html",
+      controller:"ItemListCtrl",
+      resolve: {isAuth}
+    })
+    .when("/newNote", {
+      templateUrl:"partials/newNote.html",
+      controller:"NewNoteCtrl",
+      resolve: {isAuth}
+    })
+    .otherwise("/login")
+    ;
+
+    // when a user is logged in, they will be able to see thet button anchors that 
+    // allow them to add a new note and view their note list
+    // if not logged in, they will not be able to see these buttons
+
+    // When a user logs in, or is automatically logged in, it will take them to their note list
+  })
+  .run(FBCreds =>{
+    let creds = FBCreds;
+    let authConfig = {
+      apiKey: creds.apiKey,
+      authDomain: creds.authDomain
+    };
+      firebase.initializeApp(authConfig);
+  });
+
+
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/ItemListCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("ItemListCtrl", function($scope, noteFactory){
+    $scope.title = "Your notes, my dude.";
+
+
+
+    noteFactory.getNotesFromFB()
+    .then((notes)=>{
+      console.log('dataaaa',notes);
+      if(notes !== null && notes !== undefined){
+        $scope.noteList = Object.keys(notes).map(key => {
+          // notes[key].FBid = key;
+          return notes[key];
+        });
+      }else{
+        $scope.message = "You need some notes, my dude.";
+      }
+      console.log('scopeitems',  $scope.noteList);
+    });
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/LoginCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("LoginCtrl", function($scope, authFactory, $window){
+  $scope.title = "Please Login";
+
+
+
+  $scope.login = ()=>{
+    authFactory.loginUser($scope.account).then(user=>{
+      console.log('logged in user: ',user);
+      $window.location.href = "#!/noteList";
+    });
+  };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NavBarCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NavBarCtrl", function($scope, authFactory, $location){
+    $scope.thisUserRightHere = authFactory.getUser();
+    $scope.logout = () =>{
+      console.log('you are logged out');
+      authFactory.logoutUser();
+      $location.url('/auth');
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/NewNoteCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("NewNoteCtrl", function($scope, noteFactory, $location){
+
+    $scope.saveNewNote = () =>{
+      $scope.note.uid = firebase.auth().currentUser.uid;
+      noteFactory.saveNewNoteToFB($scope.note)
+      // .then(data=>{
+
+        // noteFactory.getNotesFromFB()
+        .then(allnotes=>{
+          console.log('allnotes',allnotes);
+          $location.url("/noteList");
+        // });
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/controllers/RegisterCtrl.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+  module
+  .controller("RegisterCtrl", function($scope, authFactory, $location){
+    $scope.title = "Please Register";
+
+
+    $scope.register = () =>{
+      authFactory.registerUser($scope.account)
+      .then( (user) =>{
+        console.log('newUser',user);
+        authFactory.getUser();
+        $location.url("/login");
+        authFactory.loginUser($scope.account);
+      })
+      .catch( error=>{
+        console.log('errrorq',error);
+      });
+    };
+
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/authFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("authFactory", function(FBCreds){
+
+    let getUser = () => {
+      return firebase.auth().currentUser;
+    };
+
+    const registerUser = function({email, password}){
+        return firebase
+        .auth()
+        .createUserWithEmailAndPassword(email, password);
+      };
+
+    const loginUser = ({email, password})=>{
+      return firebase.auth()
+      .signInWithEmailAndPassword(email, password);
+    };
+
+    let isAuthenticated = () => {
+      return firebase.auth().currentUser ? true : false;
+    };
+
+    let logoutUser = () => {
+      firebase.auth().signOut();
+    };
+
+    return { registerUser, loginUser, getUser, isAuthenticated, logoutUser };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/factories/noteFactory.js
+//--------------------------------------------------------------------------------------------------------------------
+
+  "use strict";
+
+
+  module
+  .factory("noteFactory", function(FBUrl, $q, $http){
+    // function that sends 'note' to FB with user id and note.body
+    function saveNewNoteToFB(newNote) {
+      return $q((resolve, reject)=>{
+        $http.post(`${FBUrl}/notes.json`,
+        JSON.stringify(newNote)
+        ).then( data =>{
+          resolve(data, newNote);
+        }).catch(err=>{
+          console.log('err',err);
+        });
+      });
+    }
+
+    // function that GETs the notes from firebase, and 
+    // assigns $scope.noteList to the list of notes, after converting it to an array?
+
+    // $http.get(`${FBUrl}/notes.json`)
+
+
+    function getNotesFromFB(){
+      return $q((resolve,reject)=>{
+        $http.get(`${FBUrl}/notes.json?orderBy="uid"&equalTo="${firebase.auth().currentUser.uid}"`)
+        .then(({data})=>{
+          // Object.keys(data.data).map(key => {
+          //   data.data[key].FBid = key;
+          // });
+          console.log('data in factry',data);
+          resolve(data);
+        });
+      });
+    }
+
+    return { getNotesFromFB, saveNewNoteToFB };
+  });
+//--------------------------------------------------------------------------------------------------------------------
+// File: ../app/values/FBConfig.js
+//--------------------------------------------------------------------------------------------------------------------
+
+
+  module.constant("FBCreds", {
+    apiKey: "AIzaSyBI4K1hhLJ_JHCtdZbG1e0XazOLn1PhojQ",
+    authDomain: "testetization.firebaseapp.com"
+  });
+
+
+}) (angular.module ('UserNotesApp', ['ngRoute']));
+
+

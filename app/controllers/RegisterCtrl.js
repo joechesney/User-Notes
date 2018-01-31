@@ -9,6 +9,7 @@ angular.module("UserNotesApp")
     authFactory.registerUser($scope.account)
     .then( (user) =>{
       console.log('newUser',user);
+      authFactory.getUser();
       $location.url("/login");
       authFactory.loginUser($scope.account);
     })

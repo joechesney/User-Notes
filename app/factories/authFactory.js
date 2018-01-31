@@ -4,6 +4,10 @@
 angular.module("UserNotesApp")
 .factory("authFactory", function(FBCreds){
 
+  let getUser = () => {
+    return firebase.auth().currentUser;
+  };
+
   const registerUser = function({email, password}){
       return firebase
       .auth()
@@ -15,5 +19,13 @@ angular.module("UserNotesApp")
     .signInWithEmailAndPassword(email, password);
   };
 
-  return { registerUser, loginUser };
+  let isAuthenticated = () => {
+    return firebase.auth().currentUser ? true : false;
+  };
+
+  let logoutUser = () => {
+    firebase.auth().signOut();
+  };
+
+  return { registerUser, loginUser, getUser, isAuthenticated, logoutUser };
 });
