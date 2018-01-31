@@ -20,7 +20,8 @@ angular.module("UserNotesApp", ["ngRoute"])
     templateUrl:"partials/newNote.html",
     controller:"NewNoteCtrl"
   })
-  .otherwise("/login");
+  // .otherwise("/login")
+  ;
 
   // when a user is logged in, they will be able to see thet button anchors that 
   // allow them to add a new note and view their note list

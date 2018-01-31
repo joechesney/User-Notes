@@ -9,7 +9,7 @@ $scope.title = "Please Login";
 $scope.login = ()=>{
   authFactory.loginUser($scope.account).then(user=>{
     console.log('logged in user: ',user);
-    $window.location.href = "#!/items/list";
+    $window.location.href = "#!/noteList";
   });
 };
 });
