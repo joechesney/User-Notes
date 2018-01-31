@@ -14,13 +14,16 @@ angular.module("UserNotesApp")
 
   function getNotesFromFB(){
     return $q((resolve,reject)=>{
-      $http.get(`${FBUrl}/notes.json"`)
-      .then(data=>{
-        Object.keys(data.data).map(key => {
-          data.data[key].FBid = key;
-        });
+      $http.get(`${FBUrl}/notes.json`)
+      .then(({data})=>{
+        // Object.keys(data.data).map(key => {
+        //   data.data[key].FBid = key;
+        // });
+        console.log('data in factry',data);
         resolve(data);
       });
     });
   }
+
+  return { getNotesFromFB };
 });

@@ -1,6 +1,7 @@
 "use strict";
 
 angular.module("UserNotesApp", ["ngRoute"])
+.constant("FBUrl", "https://testetization.firebaseio.com")
 .config(($routeProvider)=>{
   // TODO: add routing
   $routeProvider
@@ -12,7 +13,7 @@ angular.module("UserNotesApp", ["ngRoute"])
     templateUrl:"partials/login.html",
     controller:"LoginCtrl"
   })
-  .when("/notes", {
+  .when("/noteList", {
     templateUrl:"partials/noteList.html",
     controller:"ItemListCtrl"
   })
@@ -20,7 +21,7 @@ angular.module("UserNotesApp", ["ngRoute"])
     templateUrl:"partials/newNote.html",
     controller:"NewNoteCtrl"
   })
-  // .otherwise("/login")
+  .otherwise("/login")
   ;
 
   // when a user is logged in, they will be able to see thet button anchors that 
