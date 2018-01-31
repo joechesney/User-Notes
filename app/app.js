@@ -21,6 +21,11 @@ angular.module("UserNotesApp", ["ngRoute"])
     controller:"NewNoteCtrl"
   });
 
+  // when a user is logged in, they will be able to see thet button anchors that 
+  // allow them to add a new note and view their note list
+  // if not logged in, they will not be able to see these buttons
+
+  // When a user logs in, or is automatically logged in, it will take them to their note list
 })
 .run(FBCreds =>{
   let creds = FBCreds;
