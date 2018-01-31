@@ -1,7 +1,8 @@
 "use strict";
 
-angular.module("UserNoteApp").controller("LoginCtrl", function($scope){
-
+angular.module("UserNotesApp")
+.controller("LoginCtrl", function($scope){
+$scope.title = "Please Login";
 
   
 });
