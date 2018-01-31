@@ -4,6 +4,10 @@ angular.module("UserNotesApp", ["ngRoute"])
 .config(($routeProvider)=>{
   // TODO: add routing
   $routeProvider
+  .when("/register", {
+    templateUrl:"partials/register.html",
+    controller:"RegisterCtrl"
+  })
   .when("/login", {
     templateUrl:"partials/login.html",
     controller:"LoginCtrl"
@@ -12,14 +16,12 @@ angular.module("UserNotesApp", ["ngRoute"])
     templateUrl:"partials/noteList.html",
     controller:"ItemListCtrl"
   })
-  .when("/register", {
-    templateUrl:"partials/register.html",
-    controller:"RegisterCtrl"
-  })
   .when("/newnote", {
     templateUrl:"partials/newNote.html",
     controller:"NewNoteCtrl"
-  });
+  })
+  // .otherwise("/login")
+  ;
 
   // when a user is logged in, they will be able to see thet button anchors that 
   // allow them to add a new note and view their note list

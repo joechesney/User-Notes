@@ -1,6 +1,7 @@
 "use strict";
 
-angular.module("UserNotesApp").controller("NewNoteCtrl", function($scope){
+angular.module("UserNotesApp")
+.controller("NewNoteCtrl", function($scope){
 
   
 });
