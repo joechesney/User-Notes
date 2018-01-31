@@ -1,6 +1,6 @@
 "use strict";
 
-angular.module("UserNoteApp").controller("ItemListCtrl", function($scope){
+angular.module("UserNotesApp").controller("ItemListCtrl", function($scope){
 
 
 });
