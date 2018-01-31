@@ -1,8 +1,10 @@
 "use strict";
 
 angular.module("UserNotesApp")
-.controller("NavBarCtrl", function($scope){
-  $scope.thisUserRightHere = firebase.auth().currentUser.uid;
-
+.controller("NavBarCtrl", function($scope, authFactory){
+  $scope.thisUserRightHere = authFactory.getUser();
+  let logout = () =>{
+    authFactory.logoutUser();
+  };
   
 });
