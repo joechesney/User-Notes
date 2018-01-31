@@ -1,6 +1,7 @@
 "use strict";
 
-angular.module("UserNotesApp").controller("ItemListCtrl", function($scope, noteFactory){
+angular.module("UserNotesApp")
+.controller("ItemListCtrl", function($scope, noteFactory){
   $scope.title = "Your notes, my dude.";
 
   
@@ -9,14 +10,14 @@ angular.module("UserNotesApp").controller("ItemListCtrl", function($scope, noteF
   .then((notes)=>{
     console.log('dataaaa',notes);
     if(notes !== null && notes !== undefined){
-      $scope.items = Object.keys(notes).map(key => {
+      $scope.noteList = Object.keys(notes).map(key => {
         // notes[key].FBid = key;
         return notes[key];
       });
     }else{
       $scope.message = "You need some notes, my dude.";
     }
-    console.log('scopeitems',  $scope.items);
+    console.log('scopeitems',  $scope.noteList);
   });
 
 });

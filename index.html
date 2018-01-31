@@ -12,7 +12,8 @@
 </head>
 <body ng-app="UserNotesApp">
   <div><b><h1>TEST</h1></b></div>
-  
+  <div ng-include="'partials/nav-bar.html'"></div>
+
   <div ng-view></div>
 
   <script src="app/app.js"></script>
@@ -25,6 +26,8 @@
   <script src='app/controllers/ItemListCtrl.js'></script>
   <script src='app/controllers/NewNoteCtrl.js'></script>
   <script src='app/controllers/RegisterCtrl.js'></script>
+  <script src='app/controllers/NavBarCtrl.js'></script>
+
 
 </body>
 </html>

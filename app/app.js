@@ -17,7 +17,7 @@ angular.module("UserNotesApp", ["ngRoute"])
     templateUrl:"partials/noteList.html",
     controller:"ItemListCtrl"
   })
-  .when("/newnote", {
+  .when("/newNote", {
     templateUrl:"partials/newNote.html",
     controller:"NewNoteCtrl"
   })
